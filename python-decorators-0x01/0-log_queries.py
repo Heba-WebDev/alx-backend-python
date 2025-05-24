@@ -10,9 +10,8 @@ def log_queries(func):
     def wrapper(*args, **kwargs):
         query = kwargs.get('query') or (args[0] if args else None)
         if query:
-            logging(f"{datetime.now()} - SQL Query: {query}")
-        else:
-            logging("[LOG] No query found.")
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"[{timestamp}] Executing query: {query}")
         return func(*args, **kwargs)
     return wrapper
 
