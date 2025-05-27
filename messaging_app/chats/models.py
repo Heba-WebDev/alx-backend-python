@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+from django.conf import settings
 
 
 # Create your models here.
@@ -50,70 +51,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
-
-
-class Property(models.Model):
-    property_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_index=True)
-    host = models.ForeignKey(User, on_delete=models.CASCADE, related_name='properties')
-    name = models.CharField(max_length=255)
-    description = models.TextField()
-    location = models.CharField(max_length=255)
-    price_per_night = models.DecimalField(max_digits=10, decimal_places=2)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.name
-
-
-class Booking(models.Model):
-    class Status(models.TextChoices):
-        PENDING = 'pending'
-        CONFIRMED = 'confirmed'
-        CANCELED = 'canceled'
-
-    booking_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_index=True)
-    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='bookings')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')
-    start_date = models.DateField()
-    end_date = models.DateField()
-    total_price = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.user.email} booking at {self.property.name}"
-
-class Payment(models.Model):
-    class Method(models.TextChoices):
-        CREDIT_CARD = 'credit_card'
-        PAYPAL = 'paypal'
-        STRIPE = 'stripe'
-
-    payment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_index=True)
-    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='payments')
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_date = models.DateTimeField(auto_now_add=True)
-    payment_method = models.CharField(max_length=20, choices=Method.choices)
-
-    def __str__(self):
-        return f"Payment {self.payment_id} for booking {self.booking.booking_id}"
-
-class Review(models.Model):
-    review_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_index=True)
-    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='reviews')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews')
-    rating = models.PositiveSmallIntegerField()
-    comment = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def clean(self):
-        from django.core.exceptions import ValidationError
-        if not (1 <= self.rating <= 5):
-            raise ValidationError("Rating must be between 1 and 5.")
-
-    def __str__(self):
-        return f"Review by {self.user.email} on {self.property.name}"
 
 
 class Message(models.Model):
