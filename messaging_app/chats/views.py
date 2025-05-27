@@ -59,7 +59,7 @@ class MessageViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return self.queryset.filter(participants=self.request.user)
+        return self.queryset.filters(participants=self.request.user)
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
