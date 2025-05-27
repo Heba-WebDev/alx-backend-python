@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-class ConverstionViewSet(viewsets.ModelViewSet):
+class ConversationViewSet(viewsets.ModelViewSet):
     queryset = Conversation.objects.all()
     serializer_class = ConversationSerializer
     permission_classes = [IsAuthenticated]
@@ -36,10 +36,9 @@ class MessageViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Optionally filter by conversation
         conversation_id = self.request.query_params.get('conversation')
         if conversation_id:
-            return self.queryset.filter(conversation_id=conversation_id)
+            return self.queryset.filters(conversation_id=conversation_id)
         return self.queryset.none()
 
     def create(self, request, *args, **kwargs):
@@ -51,24 +50,4 @@ class MessageViewSet(viewsets.ModelViewSet):
         serializer.save()
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
-class MessageViewSet(viewsets.ModelViewSet):
-    queryset = Message.objects.all()
-    serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return self.queryset.filters(participants=self.request.user)
-
-    def create(self, request, *args, **kwargs):
-        data = request.data.copy()
-        data['sender'] = request.user.id
-
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
 
