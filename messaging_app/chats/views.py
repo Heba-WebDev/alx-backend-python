@@ -60,3 +60,14 @@ class MessageViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not Message.objects.filter(
+            id=instance.id,
+            conversation__participants=self.request.user
+        ).exists():
+            return Response(
+                {"detail": "You are not authorized to update this message"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().update(request, *args, **kwargs)
