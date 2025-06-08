@@ -21,7 +21,13 @@ class ConversationViewSet(viewsets.ModelViewSet):
         if not user_ids:
             return Response({"detail": "At least one participant is required."},
                             status=status.HTTP_400_BAD_REQUEST)
-        participant_ids = list(set(user_ids + [request.user.id]))
+        participant_ids = list(set(user_ids + [request.user.user_id]))
+        try:
+            participants = User.objects.filter(user_id__in=participant_ids)
+        except User.DoesNotExist:
+            return Response({"detail": "Invalid user IDs provided."},
+                          status=status.HTTP_400_BAD_REQUEST)
+
         conversation = Conversation.objects.create()
         conversation.participants.set(User.objects.filter(id__in=participant_ids))
         conversation.save()
