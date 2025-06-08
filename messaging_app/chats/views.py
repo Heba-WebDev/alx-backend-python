@@ -43,10 +43,12 @@ class MessageViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsParticipantOfConversation]
 
     def get_queryset(self):
-        conversation_id = self.request.query_params.get('conversation')
+        """Return messages from conversations the user is part of."""
+        queryset = Message.objects.filter(conversation__participants=self.request.user)
+        conversation_id = self.kwargs.get('conversation_conversation_id') or self.request.query_params.get('conversation')
         if conversation_id:
-            return self.queryset.filters(conversation_id=conversation_id)
-        return self.queryset.none()
+            queryset = queryset.filter(conversation__conversation_id=conversation_id)
+        return queryset
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
