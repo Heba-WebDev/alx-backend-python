@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.db.models import Q, Prefetch
+from managers import UnreadMessagesManager
 
 User = get_user_model()
 
@@ -21,17 +22,6 @@ class MessageManager(models.Manager):
         ).select_related('sender', 'receiver', 'parent_message').order_by('timestamp')
 
 
-class UnreadMessagesManager(models.Manager):
-    def for_user(self, user):
-        """Return unread messages for a specific user with optimized queries"""
-        return self.get_queryset().filter(
-            receiver=user,
-            is_read=False
-        ).select_related('sender').only(
-            'id', 'content', 'timestamp', 'sender__id', 'sender__username', 'is_read'
-        ).order_by('-timestamp')
-
-
 class Message(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_messages')
@@ -50,7 +40,7 @@ class Message(models.Model):
     )
 
     objects = models.Manager()  # The default manager
-    unread = UnreadMessagesManager()
+    unread = UnreadMessagesManager()  # Custom manager for unread messages
 
     class Meta:
         ordering = ['timestamp']
