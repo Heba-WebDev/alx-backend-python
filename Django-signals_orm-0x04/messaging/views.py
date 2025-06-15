@@ -3,6 +3,13 @@ from django.db.models import Q
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import cache_page
+from rest_framework.decorators import permission_classes, api_view
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.status import HTTP_401_UNAUTHORIZED, HTTP_404_NOT_FOUND, HTTP_400_BAD_REQUEST, HTTP_200_OK
+from .serializers import MessageSerializer
 from .models import Message
 from django.shortcuts import render, get_object_or_404
 
@@ -116,3 +123,42 @@ def conversation_unread(request, user_id):
         'unread_messages': unread_messages,
         'sender_id': user_id
     })
+
+@cache_page(60)  # Cache the response for 60 seconds
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_all_user_messages(request: Request) -> Response:
+    """
+    View to get all messages for the authenticated user.
+    """
+
+    if not request:
+        return Response(
+            {"error": "Request object is missing."},
+            status=HTTP_400_BAD_REQUEST,
+        )
+
+    user: User = request.user
+
+    if not user.is_authenticated:
+        return Response(
+            {"error": "User is not authenticated."},
+            status=HTTP_401_UNAUTHORIZED,
+        )
+
+    # Fetch all messages for the user (both sent and received)
+    replies = (
+        Message.objects.filter(user=user)
+        .select_related("sender", "recipient")
+        .prefetch_related("parent_message")
+        .filter(Q(sender=request.user) | Q(recipient=user))
+    )
+
+    if not replies.exists():
+        return Response(
+            {"message": "No messages found for the user."},
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    serializer = MessageSerializer(replies, many=True)
+    return Response(serializer.data, status=HTTP_200_OK)
