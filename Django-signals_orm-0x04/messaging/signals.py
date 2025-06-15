@@ -1,7 +1,7 @@
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
-from .models import Message, Notification, MessageHistory
+from .models import Message, Notification, MessageHistory, User
 
 @receiver(post_save, sender=Message)
 def create_notification(sender, instance, created, **kwargs):
@@ -29,3 +29,20 @@ def log_message_history(sender, instance, **kwargs):
                 instance.last_edited = timezone.now()
         except Message.DoesNotExist:
             pass
+
+
+@receiver(post_delete, sender=User)
+def cleanup_user_data(sender, instance, **kwargs):
+    """
+    Clean up related data when a user is deleted.
+    This handles cases where CASCADE isn't appropriate or we need additional cleanup.
+    """
+    # Messages where user is sender or receiver
+    Message.objects.filter(sender=instance).delete()
+    Message.objects.filter(receiver=instance).delete()
+
+    # Notifications for the user
+    Notification.objects.filter(user=instance).delete()
+
+    # Message histories edited by the user
+    MessageHistory.objects.filter(edited_by=instance).update(edited_by=None)
