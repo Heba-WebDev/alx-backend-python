@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -19,23 +20,60 @@ def delete_user(request):
 
 @login_required
 def conversation_view(request, user_id):
-    """View for a conversation between two users"""
+    """View for a conversation between two users with optimized queries"""
     other_user = get_object_or_404(User, pk=user_id)
-    messages = Message.objects.get_conversation(request.user, other_user)
+
+    # Optimized query using select_related and prefetch_related
+    messages = Message.objects.filter(
+        Q(sender=request.user, receiver=other_user) |
+        Q(sender=other_user, receiver=request.user)
+    ).select_related('sender', 'receiver').prefetch_related(
+        'replies__sender', 'replies__receiver'
+    ).order_by('timestamp')
 
     return render(request, 'messaging/conversation.html', {
         'other_user': other_user,
-        'messages': messages
+        'messages': [m for m in messages if not m.parent_message]
     })
 
 
 @login_required
 def thread_view(request, message_id):
-    """View for a specific message thread"""
-    message = get_object_or_404(Message.objects.select_related('sender', 'receiver'), pk=message_id)
-    thread = message.get_thread()
+    """View for a specific message thread with recursive replies"""
+    root_message = get_object_or_404(
+        Message.objects.select_related('sender', 'receiver'),
+        pk=message_id
+    )
+
+    # Recursive query to get all replies
+    def get_replies(message, depth=0):
+        replies = list(message.replies.all()
+                       .select_related('sender', 'receiver')
+                       .order_by('timestamp'))
+        result = []
+        for reply in replies:
+            result.append((reply, depth))
+            result.extend(get_replies(reply, depth + 1))
+        return result
+
+    thread = get_replies(root_message)
 
     return render(request, 'messaging/thread.html', {
-        'root_message': message,
+        'root_message': root_message,
         'thread': thread
     })
+
+
+@login_required
+def reply_view(request, message_id):
+    """Handle message replies"""
+    if request.method == 'POST':
+        parent_message = get_object_or_404(Message, pk=message_id)
+        Message.objects.create(
+            sender=request.user,
+            receiver=parent_message.sender if request.user == parent_message.receiver else parent_message.receiver,
+            content=request.POST.get('content'),
+            parent_message=parent_message
+        )
+        return redirect('messaging:thread', message_id=message_id)
+    return redirect('messaging:conversation', user_id=request.user.id)
