@@ -1,7 +1,25 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.db.models import Q, Prefetch
 
 User = get_user_model()
+
+class MessageManager(models.Manager):
+    def get_conversation(self, user1, user2):
+        return self.filter(
+            Q(sender=user1, receiver=user2) | Q(sender=user2, receiver=user1)
+        ).select_related('sender', 'receiver').prefetch_related(
+            Prefetch('replies',
+                    queryset=Message.objects.select_related('sender', 'receiver')
+                    .order_by('timestamp'))
+        ).order_by('timestamp')
+
+    def get_thread(self, message_id):
+        """Get a message and all its replies recursively"""
+        return self.filter(
+            Q(id=message_id) | Q(parent_message_id=message_id)
+        ).select_related('sender', 'receiver', 'parent_message').order_by('timestamp')
+
 
 class Message(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
@@ -12,8 +30,29 @@ class Message(models.Model):
     edited = models.BooleanField(default=False)
     last_edited = models.DateTimeField(null=True, blank=True)
 
+    parent_message = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='replies'
+    )
+
+    objects = MessageManager()
+
+    class Meta:
+        ordering = ['timestamp']
+
     def __str__(self):
         return f"Message from {self.sender} to {self.receiver}"
+
+    def get_thread(self):
+        """Recursive method to get all replies in a thread"""
+        replies = list(self.replies.all().select_related('sender', 'receiver'))
+        for reply in replies:
+            replies.extend(reply.get_thread())
+        return replies
+
 
 class MessageHistory(models.Model):
     message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='history')
