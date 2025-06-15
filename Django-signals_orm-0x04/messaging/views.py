@@ -80,18 +80,36 @@ def reply_view(request, message_id):
 
 
 @login_required
-def unread_messages(request):
-    """View showing only unread messages for the current user"""
-    messages = Message.unread.for_user(request.user)
+def inbox_unread(request):
+    """View showing only unread messages using the custom manager"""
+    # Using the custom manager with optimized query
+    unread_messages = Message.unread.for_user(request.user)
 
-    return render(request, 'messaging/unread.html', {
-        'messages': messages
+    return render(request, 'messaging/inbox_unread.html', {
+        'unread_messages': unread_messages
     })
 
 
 @login_required
-def mark_as_read(request, message_id):
-    """View to mark a message as read"""
-    message = get_object_or_404(Message, pk=message_id, receiver=request.user)
+def mark_message_read(request, message_id):
+    """Mark a specific message as read"""
+    message = get_object_or_404(
+        Message.unread.for_user(request.user),  # Using our custom manager
+        pk=message_id
+    )
     message.mark_as_read()
-    return redirect('messaging:unread')
+    return redirect('messaging:inbox_unread')
+
+
+@login_required
+def conversation_unread(request, user_id):
+    """Show unread messages in a specific conversation"""
+    # Using the custom manager with additional filtering
+    unread_messages = Message.unread.for_user(request.user).filter(
+        sender_id=user_id
+    )
+
+    return render(request, 'messaging/conversation_unread.html', {
+        'unread_messages': unread_messages,
+        'sender_id': user_id
+    })

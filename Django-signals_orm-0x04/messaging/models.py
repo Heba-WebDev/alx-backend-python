@@ -24,11 +24,11 @@ class MessageManager(models.Manager):
 class UnreadMessagesManager(models.Manager):
     def for_user(self, user):
         """Return unread messages for a specific user with optimized queries"""
-        return self.filter(
+        return self.get_queryset().filter(
             receiver=user,
             is_read=False
         ).select_related('sender').only(
-            'id', 'content', 'timestamp', 'sender__username', 'sender__id'
+            'id', 'content', 'timestamp', 'sender__id', 'sender__username', 'is_read'
         ).order_by('-timestamp')
 
 
