@@ -77,3 +77,21 @@ def reply_view(request, message_id):
         )
         return redirect('messaging:thread', message_id=message_id)
     return redirect('messaging:conversation', user_id=request.user.id)
+
+
+@login_required
+def unread_messages(request):
+    """View showing only unread messages for the current user"""
+    messages = Message.unread.for_user(request.user)
+
+    return render(request, 'messaging/unread.html', {
+        'messages': messages
+    })
+
+
+@login_required
+def mark_as_read(request, message_id):
+    """View to mark a message as read"""
+    message = get_object_or_404(Message, pk=message_id, receiver=request.user)
+    message.mark_as_read()
+    return redirect('messaging:unread')

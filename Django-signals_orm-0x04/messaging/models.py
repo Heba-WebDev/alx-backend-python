@@ -21,6 +21,17 @@ class MessageManager(models.Manager):
         ).select_related('sender', 'receiver', 'parent_message').order_by('timestamp')
 
 
+class UnreadMessagesManager(models.Manager):
+    def for_user(self, user):
+        """Return unread messages for a specific user with optimized queries"""
+        return self.filter(
+            receiver=user,
+            is_read=False
+        ).select_related('sender').only(
+            'id', 'content', 'timestamp', 'sender__username', 'sender__id'
+        ).order_by('-timestamp')
+
+
 class Message(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_messages')
@@ -38,7 +49,8 @@ class Message(models.Model):
         related_name='replies'
     )
 
-    objects = MessageManager()
+    objects = models.Manager()  # The default manager
+    unread = UnreadMessagesManager()
 
     class Meta:
         ordering = ['timestamp']
@@ -52,6 +64,12 @@ class Message(models.Model):
         for reply in replies:
             replies.extend(reply.get_thread())
         return replies
+
+    def mark_as_read(self):
+        """Mark message as read and save"""
+        if not self.is_read:
+            self.is_read = True
+            self.save()
 
 
 class MessageHistory(models.Model):
