@@ -1,5 +1,9 @@
+from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 from django.shortcuts import render
+from django.views.decorators.cache import cache_page
 from rest_framework import viewsets, status
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import Conversation, Message
@@ -71,3 +75,23 @@ class MessageViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         return super().update(request, *args, **kwargs)
+
+
+@cache_page(60)
+@login_required
+def conversation_view(request, user_id):
+    """
+    Cached view that displays conversation between two users
+    Cache timeout is set to 60 seconds
+    """
+    other_user = get_object_or_404(User, pk=user_id)
+
+    messages = Message.objects.filter(
+        Q(sender=request.user, receiver=other_user) |
+        Q(sender=other_user, receiver=request.user)
+    ).select_related('sender', 'receiver').order_by('timestamp')
+
+    return render(request, 'messaging/conversation.html', {
+        'other_user': other_user,
+        'messages': messages
+    })
