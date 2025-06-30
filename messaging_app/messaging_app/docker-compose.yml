@@ -1,0 +1,30 @@
+services:
+  web:
+    build: ..
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - messaging_net
+    volumes:
+      - type: volume
+        source: messaging_vol
+  db:
+    image: "mysql:8.0"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    env_file:
+      - .env
+    networks:
+      - messaging_net
+
+networks:
+  messaging_net:
+volumes:
+  messaging_vol:
+  mysql_data:
