@@ -12,8 +12,7 @@ services:
     networks:
       - messaging_net
     volumes:
-      - type: volume
-        source: messaging_vol
+      - messaging_vol:/app
   db:
     image: "mysql:8.0"
     volumes:
